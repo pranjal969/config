@@ -1,46 +1,18 @@
-Graded Assignment: Apply the Solution: Your Story
-1. Outline of My Story
-Title: The Late-Night Breakthrough
+One of the most compelling speeches I’ve heard is Steve Jobs’ 2005 Stanford Commencement Address. This speech resonates deeply with me because it’s rich in pathos, logos, and ethos—elements that together create a truly persuasive and memorable message.
 
-1. Beginning (Setting & Characters):
-- Me: Junior developer, eager but nervous.
-- Mentor: Senior developer, supportive and insightful.
-- Setting: Small IT company’s office, late evening hours.
+Pathos (Emotional Appeal):
+Jobs starts with the story of his adoption and his decision to drop out of college. He speaks about feeling lost but trusting that the dots would connect someday. This vulnerability makes the speech instantly relatable, especially for someone like me who has also felt uncertain about my own path. His account of being fired from Apple and later finding a new sense of purpose at NeXT and Pixar struck an emotional chord—it reminded me that setbacks can lead to growth and new opportunities. The most powerful moment of pathos, though, comes when he shares his experience with cancer. His reminder that “your time is limited, so don’t waste it living someone else’s life” hit me hard, stirring both reflection and motivation.
 
-2. Conflict (Obstacle or Challenge):
-- Assigned to build a critical feature under a tight deadline.
-- Encountered unexpected bugs and architecture challenges.
-- Felt overwhelmed and doubted my abilities.
+Logos (Logical Appeal):
+Jobs logically lays out the idea that one cannot connect the dots looking forward, only backward. This idea is supported by his own life story, showing that trust and perseverance are crucial even when the path ahead seems unclear. He also logically argues for the importance of doing work that you love, emphasizing that passion fuels resilience and innovation. These points are grounded in reason and his personal experience, making them logically persuasive.
 
-3. Rising Action (Cause & Effect):
-- Spent late nights trying to fix issues without success.
-- Mentor noticed my struggle, offered guidance, and broke the problem into manageable steps.
-- Collaborated with teammates to brainstorm solutions.
+Ethos (Credibility and Character):
+Jobs’ ethos is undeniable. He speaks as the co-founder of Apple, a highly respected innovator and entrepreneur. His reputation adds immense weight to his words, but more importantly, his willingness to share personal failures alongside successes makes him even more credible. His authenticity—acknowledging his own doubts and struggles—builds trust with the audience.
 
-4. Climax (Turning Point):
-- One late night, after hours of debugging, I finally figured out the missing piece and implemented the solution.
+Connection to My Values and Interests:
+As someone deeply interested in technology and personal growth, Jobs’ speech aligns closely with my own values. His emphasis on following your intuition and passion speaks to my desire for a meaningful career. His message to embrace failure and learn from it encourages me to view my own setbacks not as dead ends but as stepping stones to growth.
 
-5. Resolution (Outcome & Growth):
-- Launched the feature on time, earning praise from both the team and the client.
-- Felt a new sense of confidence and growth as a developer.
-- Learned the value of collaboration, mentorship, and perseverance.
-2. Written Story
-The Late-Night Breakthrough
+What It Persuaded Me To Do:
+This speech persuaded me to take risks and trust that things will work out in the end—even when the path is uncertain. It encouraged me to pursue work that truly excites me rather than settling for something that feels safe. Most importantly, it persuaded me to cherish time and live authentically, because “your time is limited.”
 
-It was my first major project as a junior developer in our small IT company. My manager assigned me a critical feature with a tight deadline, and I felt both excited and anxious. This was my chance to prove myself.
-
-But soon, I hit a wall. My initial code ran into unexpected bugs and architecture challenges that I hadn’t faced before. Every time I fixed one issue, two more seemed to appear. Days passed, and my frustration grew. I started doubting my skills, thinking, “Maybe I’m not cut out for this.”
-
-One evening, as I sat alone in the dimly lit office, my mentor, a senior developer named Arjun, walked by. He noticed the stack of empty coffee cups on my desk and the worried look on my face. He sat down and asked, “What’s going on?”
-
-I explained the issues I was facing and how stuck I felt. Arjun listened patiently, then suggested, “Let’s break this problem into smaller chunks. Don’t try to solve everything at once.” He showed me how to isolate each part of the problem and tackle them one by one.
-
-With his guidance, I started making progress. I also reached out to my teammates, who shared insights I hadn’t considered. It felt like a team effort rather than a lonely battle.
-
-Finally, one late night, after hours of debugging, it all clicked. I found the missing piece of the puzzle—a small misconfiguration in the data pipeline—and fixed it. The feature worked seamlessly. I almost shouted with excitement!
-
-The next day, we deployed the feature on time. The client was thrilled with the result, and my manager praised my determination and teamwork.
-
-That experience changed me. I learned that it’s okay to ask for help and that breaking down a problem into smaller pieces can make the impossible feel achievable. I gained confidence not just in my coding skills but in my ability to navigate challenges and work with others to find solutions.
-
-Looking back, that late-night breakthrough taught me more than any technical course ever could. It taught me that growth happens when you embrace challenges—and that help is never far away if you ask for it.
+Overall, Steve Jobs’ 2005 Stanford Commencement Address exemplifies the power of persuasive speaking—combining emotional storytelling, logical reasoning, and credible authority to inspire action and change.
