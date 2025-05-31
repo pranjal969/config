@@ -1,21 +1,14 @@
-Sure! Here’s a short, friendly, and professional meet-and-greet message that you can submit:
+1. What did you research?
+I recently researched Generative AI’s impact on knowledge work.
 
 
----
-
-Hello Consulting Team,
-
-I’m [Your Name], and I’m excited to be part of this learning journey with all of you.
-
-I have a background in [your field/area, e.g., computer science and technology consulting], and I’ve had exposure to frameworks like SWOT analysis, Porter’s Five Forces, and RACI diagrams. Additionally, I’ve worked with Agile methodologies (Scrum and Kanban) for project management, which helps streamline processes and foster collaboration.
-
-I’m a big believer in frameworks because they bring structure to complex challenges and help align teams towards common goals. I’m looking forward to learning more from all of you and sharing experiences!
-
-Best,
-[Your Name]
+2. What were you trying to accomplish?
+I wanted to understand how AI can enhance productivity in consulting, content creation, and customer service while identifying potential risks (like bias and misuse).
 
 
----
+3. How did you do it?
+I started by reviewing reports from McKinsey and Deloitte on AI adoption in enterprises. I also read academic papers from arXiv and case studies from real-world deployments. I supplemented this with a few YouTube lectures and blog posts from leading AI practitioners.
 
-Let me know if you’d like to personalize it further or add more details! 🚀
 
+4. Any tips for us?
+Look for a mix of reputable consulting reports and hands-on case studies. Consulting reports provide strategic insights, while case studies highlight practical challenges and best practices. Also, try to get different perspectives—sometimes industry blogs or YouTube talks add a more pragmatic viewpoint than purely academic papers.
