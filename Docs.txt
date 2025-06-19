@@ -1,103 +1,132 @@
-Project Title:
-PayPal Holdings Inc. (PYPL): Navigating the Fintech Frontier
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+import java.util.Optional;
 
----
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
-🏢 Company Overview
+public class PaymentUtilsTest {
 
-Core Business: PayPal Holdings Inc. is a global fintech leader offering digital payment solutions, including online money transfers, merchant services, and peer-to-peer transactions.
+    private PaymentUtils paymentUtils;
 
-Key Platforms: PayPal, Venmo, Braintree, Xoom, and Honey.
+    @BeforeEach
+    public void setup() {
+        paymentUtils = new PaymentUtils(); // Replace with @InjectMocks if using Mockito
+    }
 
-Global Reach: Operates in approximately 200 markets, facilitating commerce for consumers and merchants worldwide. 
+    @Test
+    public void testUnbalanceWhenCurrencyMismatch() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
 
+    @Test
+    public void testFullyBalancedWhenCurrencyMatchesAndAmountMatches() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "EUR", BigDecimal.valueOf(50), BigDecimal.valueOf(50)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
 
+    @Test
+    public void testNoActivityWhenNotReceived() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .isReceived(false)
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, false, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
 
----
+    @Test
+    public void testNoActivityWhenEventIsNull() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(null)
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
 
-💰 Financial Snapshot (FY 2024)
+    @Test
+    public void testCurrencyCheckSkippedWhenNotPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("DIV")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("INR").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
 
-Revenue: $31.8 billion (7% YoY growth).
+    @Test
+    public void testCurrencyCheckSkippedWhenDomesticPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(true)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("JPY").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
 
-Net Income: $4.15 billion.
+    @Test
+    public void testUnbalancedDueToAmountMismatchBeyondTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(92)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
 
-Profit Margin: 13% (down from 14% in FY 2023).
+    @Test
+    public void testFullyBalancedWhenAmountDiffWithinTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(97)).toleranceLimit(BigDecimal.valueOf(5)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
 
-EPS: $4.03.
+    // Optional: Short position case
+    @Test
+    public void testShortPositionBalanced() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(-100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
 
-Operating Margin: 17.2% (GAAP). 
-
-
-
----
-
-⚔️ Competitive Landscape
-
-Major Competitors:
-
-Apple Pay and Google Pay: Strong mobile ecosystems.
-
-Stripe and Square (Block): Robust merchant services.
-
-Shopify's Shop Pay: Rapidly expanding in e-commerce.
-
-
-Market Position: While PayPal commands a significant share in digital payments, intensifying competition, especially in mobile and checkout solutions, challenges its dominance. 
-
-
-
----
-
-🔗 Supplier Dynamics
-
-Key Suppliers: Technology infrastructure providers, cloud services (e.g., AWS), and payment processors.
-
-Supplier Power: Moderate. While PayPal relies on these suppliers for operational efficiency, its scale and diversification mitigate excessive dependency. 
-
-
-
----
-
-👥 Customer Base and Power Dynamics
-
-Primary Customers: Individual consumers, small to medium-sized businesses, and large enterprises.
-
-Customer Power: High. The availability of alternative payment platforms empowers customers to switch easily, pressuring PayPal to continuously innovate and offer competitive services. 
-
-
-
----
-
-📈 Industry Trends and Implications
-
-Regulatory Changes: The Consumer Financial Protection Bureau (CFPB) now treats payment apps like banks, subjecting them to regular inspections and compliance requirements.
-
-Technological Advancements: Integration of AI and machine learning to enhance fraud detection and personalize user experiences.
-
-Market Expansion: Received in-principle approval from the Reserve Bank of India to operate as a cross-border payment aggregator, facilitating international transactions for Indian exporters.
-
-Strategic Initiatives: Launch of PayPal Ads, leveraging transaction data to offer targeted advertising solutions.  
-
-
-
----
-
-🎯 Current Strategic Focus
-
-Platform Consolidation: Streamlining services into a unified platform to enhance user experience.
-
-Innovation Acceleration: Investing in AI-driven solutions and personalized incentives to boost engagement.
-
-Market Penetration: Expanding services in emerging markets and exploring new revenue streams like advertising.
-
-Consumer Engagement: Enhancing features in Venmo and other platforms to increase user retention and transaction volume. 
-
-
-
----
-
-Conclusion: PayPal stands at a pivotal juncture in the fintech industry. While it faces stiff competition and regulatory challenges, its strategic initiatives in innovation, market expansion, and service diversification position it well for sustained growth. Continuous adaptation to industry trends and customer needs will be crucial for maintaining its market leadership. 
-
----
-
+    // 🛠️ Common Builder
+    private PaymentSummary.PaymentSummaryBuilder defaultPaymentSummary(String receivableCurrency, String paymentCurrency,
+                                                                        BigDecimal totalDue, BigDecimal totalAllocated) {
+        return PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency(paymentCurrency).build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency(receivableCurrency).build()))
+                .totalDue(totalDue)
+                .totalAllocated(totalAllocated)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()));
+    }
+}
