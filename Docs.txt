@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -34,7 +33,7 @@ public class PaymentUtilsTest {
     @Test
     public void testNoActivityWhenNotReceived() {
         PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
-                .isReceived(false)
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
                 .build();
         String status = paymentUtils.getBalancingStatus(paymentSummary, false, false, false);
         assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
@@ -99,17 +98,505 @@ public class PaymentUtilsTest {
 
     @Test
     public void testFullyBalancedWhenAmountDiffWithinTolerance() {
-        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(97)).toleranceLimit(BigDecimal.valueOf(5)).build();
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(97))
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
         String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
         assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
     }
 
-    // Optional: Short position case
     @Test
     public void testShortPositionBalanced() {
         PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(-100)).build();
         String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
         assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoReceivable() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("USD").build()))
+                        .build())
+                .linkedReceivables(Collections.emptyList()) // 👈 missing receivable
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoEventOption() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(null) // 👈 eventOptions = null
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCancelledEventOptionIsIgnored() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder()
+                                .paymentCurrency("USD")
+                                .cancelledIndicator(true) // 👈 cancelled
+                                .build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenNoDepotSummaries() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .depotPaymentSummaries(Collections.emptyList()) // 👈 no depot
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    // 🛠️ Common Builder
+    private PaymentSummary.PaymentSummaryBuilder defaultPaymentSummary(String receivableCurrency, String paymentCurrency,
+                                                                        BigDecimal totalDue, BigDecimal totalAllocated) {
+        return PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency(paymentCurrency).build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency(receivableCurrency).build()))
+                .totalDue(totalDue)
+                .totalAllocated(totalAllocated)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()));
+    }
+}import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class PaymentUtilsTest {
+
+    private PaymentUtils paymentUtils;
+
+    @BeforeEach
+    public void setup() {
+        paymentUtils = new PaymentUtils(); // Replace with @InjectMocks if using Mockito
+    }
+
+    @Test
+    public void testUnbalanceWhenCurrencyMismatch() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
+
+    @Test
+    public void testFullyBalancedWhenCurrencyMatchesAndAmountMatches() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "EUR", BigDecimal.valueOf(50), BigDecimal.valueOf(50)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenNotReceived() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, false, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenEventIsNull() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(null)
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNotPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("DIV")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("INR").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenDomesticPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(true)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("JPY").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testUnbalancedDueToAmountMismatchBeyondTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(92)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
+
+    @Test
+    public void testFullyBalancedWhenAmountDiffWithinTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(97))
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testShortPositionBalanced() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(-100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoReceivable() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("USD").build()))
+                        .build())
+                .linkedReceivables(Collections.emptyList()) // 👈 missing receivable
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoEventOption() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(null) // 👈 eventOptions = null
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCancelledEventOptionIsIgnored() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder()
+                                .paymentCurrency("USD")
+                                .cancelledIndicator(true) // 👈 cancelled
+                                .build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenNoDepotSummaries() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .depotPaymentSummaries(Collections.emptyList()) // 👈 no depot
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    // 🛠️ Common Builder
+    private PaymentSummary.PaymentSummaryBuilder defaultPaymentSummary(String receivableCurrency, String paymentCurrency,
+                                                                        BigDecimal totalDue, BigDecimal totalAllocated) {
+        return PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency(paymentCurrency).build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency(receivableCurrency).build()))
+                .totalDue(totalDue)
+                .totalAllocated(totalAllocated)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()));
+    }
+}import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+public class PaymentUtilsTest {
+
+    private PaymentUtils paymentUtils;
+
+    @BeforeEach
+    public void setup() {
+        paymentUtils = new PaymentUtils(); // Replace with @InjectMocks if using Mockito
+    }
+
+    @Test
+    public void testUnbalanceWhenCurrencyMismatch() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
+
+    @Test
+    public void testFullyBalancedWhenCurrencyMatchesAndAmountMatches() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("EUR", "EUR", BigDecimal.valueOf(50), BigDecimal.valueOf(50)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenNotReceived() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, false, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenEventIsNull() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(null)
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNotPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("DIV")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("INR").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenDomesticPNI() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(true)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("JPY").build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("JPY").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testUnbalancedDueToAmountMismatchBeyondTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(92)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.UNBALANCED.uiValue(), status);
+    }
+
+    @Test
+    public void testFullyBalancedWhenAmountDiffWithinTolerance() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(97))
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testShortPositionBalanced() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(-100)).build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoReceivable() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder().paymentCurrency("USD").build()))
+                        .build())
+                .linkedReceivables(Collections.emptyList()) // 👈 missing receivable
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCurrencyCheckSkippedWhenNoEventOption() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(null) // 👈 eventOptions = null
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testCancelledEventOptionIsIgnored() {
+        PaymentSummary paymentSummary = PaymentSummary.builder()
+                .event(Event.builder()
+                        .eventDetail(Event.EventDetail.builder()
+                                .eventClassification("PNI")
+                                .domesticIndicator(false)
+                                .build())
+                        .eventOptions(List.of(Event.EventOption.builder()
+                                .paymentCurrency("USD")
+                                .cancelledIndicator(true) // 👈 cancelled
+                                .build()))
+                        .build())
+                .linkedReceivables(List.of(Receivable.builder().currency("USD").build()))
+                .depotPaymentSummaries(List.of(DepotPaymentSummary.builder().build()))
+                .totalDue(BigDecimal.ZERO)
+                .totalAllocated(BigDecimal.ZERO)
+                .toleranceLimit(BigDecimal.valueOf(5))
+                .build();
+
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.FULLY_BAL.uiValue(), status);
+    }
+
+    @Test
+    public void testNoActivityWhenNoDepotSummaries() {
+        PaymentSummary paymentSummary = defaultPaymentSummary("USD", "USD", BigDecimal.valueOf(100), BigDecimal.valueOf(100))
+                .depotPaymentSummaries(Collections.emptyList()) // 👈 no depot
+                .build();
+        String status = paymentUtils.getBalancingStatus(paymentSummary, false, true, false);
+        assertEquals(BalanceStatus.NO_ACTIVITY.uiValue(), status);
     }
 
     // 🛠️ Common Builder
