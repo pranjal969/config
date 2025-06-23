@@ -1,0 +1,35 @@
+private boolean checkIfAllPayoutsMatchFirstReceivable(PaymentSummary summary) {
+    Event event = summary.getEvent();
+    if (event == null || event.getEventDetail() == null) return false;
+
+    String classification = event.getEventDetail().getEventClassification();
+    Boolean domestic = event.getEventDetail().getDomesticIndicator();
+
+    if (!"PNI".equalsIgnoreCase(classification) || Boolean.TRUE.equals(domestic)) {
+        return true; // Skip check
+    }
+
+    List<LinkedReceivable> receivables = summary.getLinkedReceivables();
+    if (receivables == null || receivables.isEmpty()) return false;
+
+    LinkedReceivable firstReceivable = receivables.get(0);
+    String receivableCurrency = firstReceivable.getCurrency();
+    if (receivableCurrency == null) return false;
+
+    List<EventOption> validOptions = event.getEventOptions() != null
+            ? event.getEventOptions().stream()
+                .filter(o -> o.getCancelledIndicator() == null || !o.getCancelledIndicator())
+                .toList()
+            : List.of();
+
+    if (validOptions.isEmpty()) return false;
+
+    for (EventOption option : validOptions) {
+        String paymentCurrency = option.getPaymentCurrency();
+        if (paymentCurrency == null || !receivableCurrency.equalsIgnoreCase(paymentCurrency)) {
+            return false; // mismatch found
+        }
+    }
+
+    return true; // all event options matched the first receivable
+}
