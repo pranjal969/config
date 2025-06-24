@@ -1,0 +1,46 @@
+private boolean checkIfCurrencyMatches(PaymentSummary summary) {
+    Event event = summary.getEvent();
+    if (event == null || event.getEventDetail() == null || event.getEventOptions() == null) return false;
+
+    Boolean domestic = event.getEventDetail().getDomesticIndicator();
+    if (Boolean.TRUE.equals(domestic)) {
+        return true; // Skip check for domestic events
+    }
+
+    List<LinkedReceivable> receivables = summary.getLinkedReceivables();
+    if (receivables == null || receivables.isEmpty()) return false;
+
+    List<EventOption> validOptions = event.getEventOptions().stream()
+        .filter(option -> option.getCancelledIndicator() == null || !option.getCancelledIndicator())
+        .collect(Collectors.toList());
+
+    if (validOptions.isEmpty()) return false;
+
+    for (LinkedReceivable receivable : receivables) {
+        String receivableCurrency = receivable.getCurrency();
+        String payoutType = receivable.getPayoutType(); // assuming getter exists
+        if (receivableCurrency == null || payoutType == null) return false;
+
+        // 🎯 First, look for matching paymentType in event options
+        Optional<EventOption> matchedOption = validOptions.stream()
+            .filter(option -> payoutType.equalsIgnoreCase(option.getPaymentType()))
+            .findFirst();
+
+        if (matchedOption.isPresent()) {
+            String optionCurrency = matchedOption.get().getPaymentCurrency();
+            if (optionCurrency == null || !optionCurrency.equalsIgnoreCase(receivableCurrency)) {
+                return false; // payout type matches but currency doesn't
+            }
+        } else {
+            // 🔄 No matching payout type, check all options' currency
+            boolean currencyMatchFound = validOptions.stream()
+                .anyMatch(option -> receivableCurrency.equalsIgnoreCase(option.getPaymentCurrency()));
+
+            if (!currencyMatchFound) {
+                return false; // none of the options match this receivable's currency
+            }
+        }
+    }
+
+    return true; // All receivables passed the check
+}
