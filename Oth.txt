@@ -1,28 +1,72 @@
-Sure, Pranjal! Here's a plagiarism-free, to-the-point answer based on your experience as a working professional in IT. This stays concise, authentic, and appropriate for Coursera:
+@Test
+void testCurrencyMismatchAlertRaisedWhenNonDomesticWMAndCurrencyMismatch() {
+    Receivable receivable = Receivable.builder().receivableId("REC123").build();
+    EventDetail detail = EventDetail.builder().businessLine("WM").domesticIndicator(false).build();
+    EventOption option = EventOption.builder().paymentCurrency("USD").build();
+    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
+    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
+    eventDetails.setEventId("1001");
+    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
 
+    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
+    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
+    when(paymentUtils.isReceivableCurrencyMatching(receivable, List.of(option))).thenReturn(false);
+    when(userNameService.getCurrentUser()).thenReturn("pranjal");
 
----
+    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
 
-Assignment Response
+    verify(alertService).raiseAlertForWNCurrencyMismatchNonDomestic(eq(receivable), eq(event), eq("pranjal"));
+}
 
-1. A time I shared a personal struggle with a coworker:
-I once shared with a teammate that I was feeling overwhelmed managing both client expectations and backend development tasks. It wasn’t too difficult because we had worked closely before and built mutual trust. I felt relieved after the conversation.
+@Test
+void testNoAlertRaisedWhenCurrencyMatches() {
+    Receivable receivable = Receivable.builder().receivableId("REC123").build();
+    EventDetail detail = EventDetail.builder().businessLine("WM").domesticIndicator(false).build();
+    EventOption option = EventOption.builder().paymentCurrency("USD").build();
+    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
+    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
+    eventDetails.setEventId("1001");
+    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
 
-2. What I learned from this lesson that could have helped:
-This lesson taught me the importance of emotional intelligence and timing. Back then, I didn’t consider if it was a good time for them to listen. Understanding how to frame my concern better would’ve made it more productive for both of us.
+    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
+    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
+    when(paymentUtils.isReceivableCurrencyMatching(receivable, List.of(option))).thenReturn(true);
+    when(userNameService.getCurrentUser()).thenReturn("pranjal");
 
-3. A time I felt intimidated while sharing (imagined):
-Imagine I shared that I was struggling with imposter syndrome during a team call, and the listener didn’t respond supportively. If they had acknowledged my feelings, maintained eye contact, or followed up later, it would’ve helped me feel safer and valued.
+    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
 
-4. Ways I can improve sharing at work:
+    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
+}
 
-I will choose one-on-one conversations for personal topics instead of group settings.
+@Test
+void testNoAlertWhenNotWMOrDomestic() {
+    Receivable receivable = Receivable.builder().receivableId("REC123").build();
+    EventDetail detail = EventDetail.builder().businessLine("INST").domesticIndicator(false).build();
+    EventOption option = EventOption.builder().paymentCurrency("USD").build();
+    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
+    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
+    eventDetails.setEventId("1001");
+    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
 
-I’ll frame my struggles constructively, focusing on growth and solutions rather than just venting.
+    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
+    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
 
+    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
 
+    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
+}
 
----
+@Test
+void testNoCrashWhenEventDataIsNull() {
+    Receivable receivable = Receivable.builder().receivableId("REC123").build();
+    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
+    eventDetails.setEventId("1001");
+    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
 
-Let me know if you need this formatted for upload or need a sample peer reply too!
+    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
+    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(null);
 
+    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
+
+    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
+}
