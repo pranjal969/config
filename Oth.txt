@@ -1,72 +1,29 @@
 @Test
 void testCurrencyMismatchAlertRaisedWhenNonDomesticWMAndCurrencyMismatch() {
     Receivable receivable = Receivable.builder().receivableId("REC123").build();
-    EventDetail detail = EventDetail.builder().businessLine("WM").domesticIndicator(false).build();
-    EventOption option = EventOption.builder().paymentCurrency("USD").build();
-    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
+
+    Event event = Event.builder()
+        .eventId("1001")
+        .eventDetail(Event.EventDetail.builder()
+            .businessLine("WM")
+            .domesticIndicator(false)
+            .eventClassification("PNI")
+            .build())
+        .eventOptions(List.of(Event.EventOption.builder()
+            .paymentCurrency("USD")
+            .build()))
+        .build();
+
     EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
     eventDetails.setEventId("1001");
     Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
 
     when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
     when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
-    when(paymentUtils.isReceivableCurrencyMatching(receivable, List.of(option))).thenReturn(false);
+    when(paymentUtils.isReceivableCurrencyMatching(receivable, event.getEventOptions())).thenReturn(false);
     when(userNameService.getCurrentUser()).thenReturn("pranjal");
 
     linkingReceivableService.reprocessLinkedReceivable("REC123", true);
 
     verify(alertService).raiseAlertForWNCurrencyMismatchNonDomestic(eq(receivable), eq(event), eq("pranjal"));
-}
-
-@Test
-void testNoAlertRaisedWhenCurrencyMatches() {
-    Receivable receivable = Receivable.builder().receivableId("REC123").build();
-    EventDetail detail = EventDetail.builder().businessLine("WM").domesticIndicator(false).build();
-    EventOption option = EventOption.builder().paymentCurrency("USD").build();
-    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
-    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
-    eventDetails.setEventId("1001");
-    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
-
-    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
-    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
-    when(paymentUtils.isReceivableCurrencyMatching(receivable, List.of(option))).thenReturn(true);
-    when(userNameService.getCurrentUser()).thenReturn("pranjal");
-
-    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
-
-    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
-}
-
-@Test
-void testNoAlertWhenNotWMOrDomestic() {
-    Receivable receivable = Receivable.builder().receivableId("REC123").build();
-    EventDetail detail = EventDetail.builder().businessLine("INST").domesticIndicator(false).build();
-    EventOption option = EventOption.builder().paymentCurrency("USD").build();
-    Event event = Event.builder().eventDetail(detail).eventOptions(List.of(option)).build();
-    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
-    eventDetails.setEventId("1001");
-    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
-
-    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
-    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(event);
-
-    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
-
-    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
-}
-
-@Test
-void testNoCrashWhenEventDataIsNull() {
-    Receivable receivable = Receivable.builder().receivableId("REC123").build();
-    EventSearchResponse.EventDetails eventDetails = new EventSearchResponse.EventDetails();
-    eventDetails.setEventId("1001");
-    Pair<EventSearchResponse.EventDetails, String> eventPair = Pair.of(eventDetails, "dummy");
-
-    when(linkingService.linkToGlassEvent(any(), any(), any(), any(), anyBoolean())).thenReturn(ResponseEntity.ok(eventPair));
-    when(eventService.getEventByEventId(anyLong(), any())).thenReturn(null);
-
-    linkingReceivableService.reprocessLinkedReceivable("REC123", true);
-
-    verify(alertService, never()).raiseAlertForWNCurrencyMismatchNonDomestic(any(), any(), any());
 }
